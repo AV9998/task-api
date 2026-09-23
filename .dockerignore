@@ -1,0 +1,7 @@
+.git
+artifacts
+__pycache__
+*.pyc
+tests
+ops
+scripts

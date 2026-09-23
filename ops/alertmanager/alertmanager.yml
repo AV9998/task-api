@@ -1,0 +1,9 @@
+route:
+  receiver: team-webhook
+  group_wait: 10s
+  repeat_interval: 1h
+receivers:
+  - name: team-webhook
+    webhook_configs:
+      - url: 'http://relay:8001/alerts'
+        send_resolved: true

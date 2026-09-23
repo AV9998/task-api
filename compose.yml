@@ -1,0 +1,18 @@
+services:
+  api:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    restart: unless-stopped
+    environment:
+      DB_PATH: /data/tasks.db
+      TOKEN_SECRET: ${TOKEN_SECRET:?TOKEN_SECRET is required}
+    volumes:
+      - tasks-data:/data
+    ports:
+      - "${APP_PORT:?APP_PORT is required}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+volumes:
+  tasks-data:
