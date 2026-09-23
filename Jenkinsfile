@@ -54,7 +54,7 @@ pipeline {
           string(credentialsId: 'task-alert-gmail-app-password', variable: 'GMAIL_APP_PASSWORD')
         ]) {
           sh 'APP_IMAGE="$IMAGE_TAG" APP_PORT=18081 docker compose -p task-production -f compose.yml -f compose.monitoring.yml up -d --wait'
-          sh 'curl --fail --silent http://127.0.0.1:9090/-/healthy && curl --fail --silent http://127.0.0.1:9090/api/v1/rules | python3 -c "import json,sys; d=json.load(sys.stdin); assert d[\"status\"] == \"success\" and any(g[\"rules\"] for g in d[\"data\"][\"groups\"])"'
+          sh 'curl --fail --silent http://127.0.0.1:9090/-/healthy && curl --fail --silent http://127.0.0.1:9090/api/v1/rules -o artifacts/prometheus-rules.json && python3 scripts/check_rules.py artifacts/prometheus-rules.json'
         }
       }
     }
