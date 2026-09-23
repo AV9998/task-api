@@ -36,7 +36,8 @@ class Relay(BaseHTTPRequestHandler):
                 smtp.login(account, os.environ["GMAIL_APP_PASSWORD"])
                 smtp.send_message(message)
             status = 200
-        except Exception:  # Relay reports failure so Alertmanager retries the notification.
+        except (OSError, smtplib.SMTPException, ValueError, KeyError, TypeError, AttributeError):
+            # Relay reports failure so Alertmanager retries the notification.
             status = 502
         self.send_response(status)
         self.end_headers()

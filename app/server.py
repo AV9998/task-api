@@ -70,7 +70,7 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("request too large")
         data = json.loads(self.rfile.read(length))
         if not isinstance(data, dict):
-            raise ValueError("expected JSON object")
+            raise TypeError("expected JSON object")
         return data
 
     def handle_request(self):
@@ -116,7 +116,7 @@ class Handler(BaseHTTPRequestHandler):
         with connect() as db:
             if path == "/tasks" and self.command == "GET":
                 rows = db.execute("SELECT id,title,done FROM tasks WHERE user_id=? ORDER BY id", (user_id,)).fetchall()
-                return self.reply(200, {"tasks": [dict(id=r["id"], title=r["title"], done=bool(r["done"])) for r in rows]})
+                return self.reply(200, {"tasks": [{"id": r["id"], "title": r["title"], "done": bool(r["done"])} for r in rows]})
             if path == "/tasks" and self.command == "POST":
                 title = self.body().get("title")
                 if not isinstance(title, str) or not 1 <= len(title.strip()) <= 200:
@@ -155,7 +155,7 @@ class Handler(BaseHTTPRequestHandler):
     def safe_handle(self):
         try:
             self.handle_request()
-        except (ValueError, json.JSONDecodeError):
+        except (ValueError, TypeError):
             self.reply(400, {"error": "invalid request"})
         except sqlite3.Error:
             self.reply(503, {"error": "database unavailable"})
