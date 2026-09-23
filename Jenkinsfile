@@ -40,8 +40,8 @@ pipeline {
       steps {
         input message: 'Promote this tested image to production?'
         withCredentials([string(credentialsId: 'task-api-token-secret', variable: 'TOKEN_SECRET')]) {
-          sh 'APP_IMAGE="$IMAGE_TAG" APP_PORT=8080 docker compose -p task-production -f compose.yml up -d --wait'
-          sh 'BASE_URL=http://127.0.0.1:8080 python3 scripts/smoke.py'
+          sh 'APP_IMAGE="$IMAGE_TAG" APP_PORT=18081 docker compose -p task-production -f compose.yml up -d --wait'
+          sh 'BASE_URL=http://127.0.0.1:18081 python3 scripts/smoke.py'
         }
       }
     }
@@ -52,13 +52,10 @@ pipeline {
           string(credentialsId: 'task-api-token-secret', variable: 'TOKEN_SECRET'),
           string(credentialsId: 'task-alert-webhook-url', variable: 'ALERT_WEBHOOK_URL')
         ]) {
-          sh 'APP_IMAGE="$IMAGE_TAG" APP_PORT=8080 docker compose -p task-production -f compose.yml -f compose.monitoring.yml up -d --wait'
+          sh 'APP_IMAGE="$IMAGE_TAG" APP_PORT=18081 docker compose -p task-production -f compose.yml -f compose.monitoring.yml up -d --wait'
           sh 'curl --fail --silent http://127.0.0.1:9090/-/healthy && curl --fail --silent http://127.0.0.1:9090/api/v1/rules | python3 -c "import json,sys; d=json.load(sys.stdin); assert d[\"status\"] == \"success\" and any(g[\"rules\"] for g in d[\"data\"][\"groups\"])"'
         }
       }
     }
-  }
-  post {
-    always { cleanWs() }
   }
 }
