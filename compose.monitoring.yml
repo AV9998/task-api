@@ -24,7 +24,8 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "app.relay"]
     environment:
-      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:?ALERT_WEBHOOK_URL is required}
+      ALERT_EMAIL: ${ALERT_EMAIL:?ALERT_EMAIL is required}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:?GMAIL_APP_PASSWORD is required}
 volumes:
       - ./ops/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     ports:

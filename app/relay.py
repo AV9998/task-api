@@ -1,7 +1,21 @@
-"""Forward Alertmanager notifications to the configured team webhook."""
+"""Send Alertmanager notifications to the configured Gmail inbox."""
+import json
 import os
+import smtplib
+import ssl
+from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.request import Request, urlopen
+
+
+def alert_text(payload):
+    """Summarize an Alertmanager webhook event for email."""
+    status = payload.get("status", "unknown").upper()
+    lines = [f"Task API alert: {status}"]
+    for alert in payload.get("alerts", [])[:10]:
+        labels = alert.get("labels", {})
+        annotation = alert.get("annotations", {})
+        lines.append(f"{labels.get('alertname', 'Alert')} ({labels.get('severity', 'unknown')}): {annotation.get('summary', 'No summary')}")
+    return "\n".join(lines)[:20000]
 
 
 class Relay(BaseHTTPRequestHandler):
@@ -10,11 +24,18 @@ class Relay(BaseHTTPRequestHandler):
         if self.path != "/alerts" or size < 1 or size > 262144:
             self.send_error(400)
             return
-        data = self.rfile.read(size)
         try:
-            request = Request(os.environ["ALERT_WEBHOOK_URL"], data, {"Content-Type": "application/json"}, method="POST")
-            with urlopen(request, timeout=10) as response:
-                status = 200 if 200 <= response.status < 300 else 502
+            text = alert_text(json.loads(self.rfile.read(size)))
+            account = os.environ["ALERT_EMAIL"]
+            message = EmailMessage()
+            message["From"] = account
+            message["To"] = account
+            message["Subject"] = text.splitlines()[0]
+            message.set_content(text)
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=10) as smtp:
+                smtp.login(account, os.environ["GMAIL_APP_PASSWORD"])
+                smtp.send_message(message)
+            status = 200
         except Exception:  # Relay reports failure so Alertmanager retries the notification.
             status = 502
         self.send_response(status)
@@ -22,6 +43,6 @@ class Relay(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    if not os.getenv("ALERT_WEBHOOK_URL", "").startswith("https://"):
-        raise RuntimeError("ALERT_WEBHOOK_URL must be HTTPS")
+    if not os.getenv("ALERT_EMAIL") or not os.getenv("GMAIL_APP_PASSWORD"):
+        raise RuntimeError("Gmail alert credentials are required")
     ThreadingHTTPServer(("0.0.0.0", 8001), Relay).serve_forever()  # nosec B104: container network listener
