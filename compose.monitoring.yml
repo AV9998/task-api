@@ -27,8 +27,4 @@ services:
       ALERT_EMAIL: ${ALERT_EMAIL:?ALERT_EMAIL is required}
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:?GMAIL_APP_PASSWORD is required}
 volumes:
-      - ./ops/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-    ports:
-      - "127.0.0.1:9093:9093"
-volumes:
   prometheus-data:
