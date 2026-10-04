@@ -24,7 +24,7 @@ class Relay(BaseHTTPRequestHandler):
         if self.path != "/alerts" or size < 1 or size > 262144:
             self.send_error(400)
             return
-        try:
+         try:
             text = alert_text(json.loads(self.rfile.read(size)))
             account = os.environ["ALERT_EMAIL"]
             message = EmailMessage()
@@ -32,13 +32,22 @@ class Relay(BaseHTTPRequestHandler):
             message["To"] = account
             message["Subject"] = text.splitlines()[0]
             message.set_content(text)
-           tls_context = ssl.create_default_context()
-tls_context.check_hostname = True
-tls_context.verify_mode = ssl.CERT_REQUIRED
 
-with smtplib.SMTP_SSL(
-    "smtp.gmail.com",
-    465,
+            tls_context = ssl.create_default_context()
+            tls_context.check_hostname = True
+            tls_context.verify_mode = ssl.CERT_REQUIRED
+
+            with smtplib.SMTP_SSL(
+                "smtp.gmail.com",
+                465,
+                context=tls_context,
+                timeout=10,
+            ) as smtp:
+                smtp.login(account, os.environ["GMAIL_APP_PASSWORD"])
+                smtp.send_message(message)
+
+            status = 200
+        except (OSError, smtplib.SM
     context=tls_context,
     timeout=10,
 ) as smtp:
