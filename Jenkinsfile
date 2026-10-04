@@ -27,31 +27,40 @@ pipeline {
         }
 
         stage('Test') {
-            steps {
-                sh '''
-                    python3 -m pip install --user unittest-xml-reporting
+    steps {
+        sh '''
+            python3 -m pip install --user unittest-xml-reporting coverage
 
-                    rm -rf test-results
-                    mkdir -p test-results
+            rm -rf test-results
+            mkdir -p test-results
 
-                    python3 -m xmlrunner discover \
-                        -s tests \
-                        -v \
-                        -o test-results
-                '''
-            }
+            python3 -m coverage erase
 
-            post {
-                always {
-                    junit testResults: 'test-results/*.xml',
-                          allowEmptyResults: false
-                }
+            python3 -m coverage run --source=app \
+                -m xmlrunner discover \
+                -s tests \
+                -v \
+                -o test-results
 
-                success {
-                    echo 'TEST GATE: PASSED'
-                }
-            }
+            python3 -m coverage xml -o coverage.xml
+            python3 -m coverage report
+        '''
+    }
+
+    post {
+        always {
+            junit testResults: 'test-results/*.xml',
+                  allowEmptyResults: false
+
+            archiveArtifacts artifacts: 'coverage.xml',
+                             allowEmptyArchive: true
         }
+
+        success {
+            echo 'TEST GATE: PASSED'
+        }
+    }
+}
 
         stage('Code Quality') {
     steps {
