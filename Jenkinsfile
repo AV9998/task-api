@@ -219,14 +219,15 @@ stage('Quality Gate') {
                         python3 scripts/check_rules.py \
                             artifacts/prometheus-rules.json
                     '''
-                    # Wait for Prometheus to scrape the production API
-sleep 20
+sh '''
+    # Wait for Prometheus to scrape the production API
+    sleep 20
 
-curl --fail --silent \
-  'http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D%22task-api%22%7D' \
-  -o artifacts/prometheus-target.json
+    curl --fail --silent \
+      'http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D%22task-api%22%7D' \
+      -o artifacts/prometheus-target.json
 
-python3 - <<'PY'
+    python3 - <<'PY'
 import json
 
 with open("artifacts/prometheus-target.json") as f:
@@ -242,7 +243,7 @@ if results[0]["value"][1] != "1":
 
 print("PRODUCTION TARGET CHECK: UP")
 PY
-                }
+'''                }
             }
         }
     }
