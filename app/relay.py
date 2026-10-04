@@ -78,7 +78,7 @@ if __name__ == "__main__":
         raise RuntimeError("Gmail alert credentials are required")
 
     ThreadingHTTPServer(
-        ("0.0.0.0", 8001),
+        ("0.0.0.0", 8001),  # nosec B104
         Relay,
     ).serve_forever()  # nosec B104: container network listener
 
