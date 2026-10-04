@@ -152,6 +152,28 @@ stage('Quality Gate') {
                         BASE_URL=http://127.0.0.1:18081 \
                         python3 scripts/smoke.py
                     '''
+                    withCredentials([
+    usernamePassword(
+        credentialsId: 'github-push',
+        usernameVariable: 'GIT_USERNAME',
+        passwordVariable: 'GIT_TOKEN'
+    )
+]) {
+    sh '''
+        TAG="v1.0.${BUILD_NUMBER}"
+
+        git config user.name "Jenkins"
+        git config user.email "jenkins@localhost"
+
+        git tag -a "$TAG" -m "Release $TAG"
+
+        git push \
+          "https://${GIT_USERNAME}:${GIT_TOKEN}@github.com/AV9998/task-api.git" \
+          "$TAG"
+
+        echo "RELEASE TAG PUSHED: $TAG"
+    '''
+}
                 }
             }
         }
