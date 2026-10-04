@@ -81,4 +81,4 @@ if __name__ == "__main__":
         ("0.0.0.0", 8001),
         Relay,
     ).serve_forever()  # nosec B104: container network listener
-PY
+
