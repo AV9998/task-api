@@ -54,15 +54,31 @@ pipeline {
         }
 
         stage('Code Quality') {
-            steps {
-                sh '''
-                    python3 -m venv .ci-venv
-                    .ci-venv/bin/pip install ruff radon
-                    .ci-venv/bin/ruff check app tests scripts
-                    .ci-venv/bin/radon cc app -s
-                '''
+    steps {
+        sh '''
+            python3 -m venv .ci-venv
+            .ci-venv/bin/pip install ruff radon
+            .ci-venv/bin/ruff check app tests scripts
+            .ci-venv/bin/radon cc app -s
+        '''
+
+        script {
+            def scannerHome = tool 'SonarScanner'
+
+            withSonarQubeEnv('SonarQube') {
+                sh "${scannerHome}/bin/sonar-scanner"
             }
         }
+    }
+}
+
+stage('Quality Gate') {
+    steps {
+        timeout(time: 5, unit: 'MINUTES') {
+            waitForQualityGate abortPipeline: true
+        }
+    }
+}
 
         stage('Security') {
             steps {
