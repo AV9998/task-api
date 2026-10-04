@@ -10,12 +10,32 @@ pipeline {
         sh 'mkdir -p artifacts && docker build -t "$IMAGE_TAG" . && docker save "$IMAGE_TAG" -o artifacts/task-api.tar'
         archiveArtifacts artifacts: 'artifacts/task-api.tar', fingerprint: true
       }
+    }stage('Test') {
+    steps {
+        sh '''
+            python3 -m pip install --user unittest-xml-reporting
+
+            rm -rf test-results
+            mkdir -p test-results
+
+            python3 -m xmlrunner discover \
+                -s tests \
+                -v \
+                -o test-results
+        '''
     }
-    stage('Test') {
-      steps {
-        sh 'python3 -m unittest discover -s tests -v'
-      }
+
+    post {
+        always {
+            junit testResults: 'test-results/*.xml',
+                  allowEmptyResults: false
+        }
+
+        success {
+            echo 'TEST GATE: PASSED'
+        }
     }
+}
     stage('Code Quality') {
       steps {
         sh 'python3 -m venv .ci-venv && .ci-venv/bin/pip install ruff radon && .ci-venv/bin/ruff check app tests scripts && .ci-venv/bin/radon cc app -s'
