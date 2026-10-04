@@ -259,50 +259,80 @@ PY
     # Stop only the production API container.
     docker stop task-production-api-1
 
-    # Always restore the API, even if the alert check fails.
+    # Always restore the API if anything below fails.
     trap 'docker start task-production-api-1 >/dev/null 2>&1 || true' EXIT
 
     echo "Waiting for TaskApiDown to enter FIRING state..."
 
-    # Rule requires 1 minute; allow enough time for scraping/evaluation.
-    sleep 90
+    ALERT_FIRING=0
 
-    curl --fail --silent \
-      http://127.0.0.1:9090/api/v1/alerts \
-      -o artifacts/prometheus-alerts.json
+    # Poll every 10 seconds for up to 3 minutes.
+    for attempt in $(seq 1 18); do
+        echo "Alert check $attempt/18"
 
-    python3 - <<'PY'
+        curl --fail --silent \
+            http://127.0.0.1:9090/api/v1/alerts \
+            -o artifacts/prometheus-alerts.json
+
+        if python3 - <<'PY'
 import json
+import sys
 
 with open("artifacts/prometheus-alerts.json") as f:
     data = json.load(f)
 
 alerts = data["data"]["alerts"]
 
-firing = [
-    alert for alert in alerts
-    if alert["labels"].get("alertname") == "TaskApiDown"
-    and alert["state"] == "firing"
-]
+for alert in alerts:
+    if (
+        alert["labels"].get("alertname") == "TaskApiDown"
+        and alert["state"] == "firing"
+    ):
+        print("INCIDENT TEST: TaskApiDown is FIRING")
+        sys.exit(0)
 
-if not firing:
-    raise SystemExit(
-        "INCIDENT TEST FAILED: TaskApiDown did not reach FIRING state"
-    )
-
-print("INCIDENT TEST: TaskApiDown is FIRING")
+sys.exit(1)
 PY
+        then
+            ALERT_FIRING=1
+            break
+        fi
+
+        sleep 10
+    done
+
+    if [ "$ALERT_FIRING" -ne 1 ]; then
+        echo "INCIDENT TEST FAILED: TaskApiDown did not reach FIRING state"
+        exit 1
+    fi
 
     echo "Restoring production API"
     docker start task-production-api-1
 
-    # Disable EXIT restoration because we restored it explicitly.
+    # We restored it ourselves, so remove the emergency trap.
     trap - EXIT
 
     echo "Waiting for production API to recover..."
-    sleep 20
 
-    curl --fail --silent http://127.0.0.1:18081/health
+    # Poll health instead of relying on a fixed recovery delay.
+    RECOVERED=0
+
+    for attempt in $(seq 1 12); do
+        echo "Recovery check $attempt/12"
+
+        if curl --fail --silent \
+            http://127.0.0.1:18081/health; then
+            RECOVERED=1
+            break
+        fi
+
+        sleep 5
+    done
+
+    if [ "$RECOVERED" -ne 1 ]; then
+        echo "INCIDENT TEST FAILED: production API did not recover"
+        exit 1
+    fi
 
     echo
     echo "INCIDENT TEST: production API restored successfully"
