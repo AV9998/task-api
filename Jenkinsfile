@@ -243,7 +243,61 @@ if results[0]["value"][1] != "1":
 
 print("PRODUCTION TARGET CHECK: UP")
 PY
-'''                }
+'''   
+                sh '''
+    echo "INCIDENT TEST: stopping production API"
+
+    # Stop only the production API container.
+    docker stop task-production-api-1
+
+    # Always restore the API, even if the alert check fails.
+    trap 'docker start task-production-api-1 >/dev/null 2>&1 || true' EXIT
+
+    echo "Waiting for TaskApiDown to enter FIRING state..."
+
+    # Rule requires 1 minute; allow enough time for scraping/evaluation.
+    sleep 90
+
+    curl --fail --silent \
+      http://127.0.0.1:9090/api/v1/alerts \
+      -o artifacts/prometheus-alerts.json
+
+    python3 - <<'PY'
+import json
+
+with open("artifacts/prometheus-alerts.json") as f:
+    data = json.load(f)
+
+alerts = data["data"]["alerts"]
+
+firing = [
+    alert for alert in alerts
+    if alert["labels"].get("alertname") == "TaskApiDown"
+    and alert["state"] == "firing"
+]
+
+if not firing:
+    raise SystemExit(
+        "INCIDENT TEST FAILED: TaskApiDown did not reach FIRING state"
+    )
+
+print("INCIDENT TEST: TaskApiDown is FIRING")
+PY
+
+    echo "Restoring production API"
+    docker start task-production-api-1
+
+    # Disable EXIT restoration because we restored it explicitly.
+    trap - EXIT
+
+    echo "Waiting for production API to recover..."
+    sleep 20
+
+    curl --fail --silent http://127.0.0.1:18081/health
+
+    echo
+    echo "INCIDENT TEST: production API restored successfully"
+'''}
             }
         }
     }
