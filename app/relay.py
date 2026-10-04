@@ -32,7 +32,16 @@ class Relay(BaseHTTPRequestHandler):
             message["To"] = account
             message["Subject"] = text.splitlines()[0]
             message.set_content(text)
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=10) as smtp:
+           tls_context = ssl.create_default_context()
+tls_context.check_hostname = True
+tls_context.verify_mode = ssl.CERT_REQUIRED
+
+with smtplib.SMTP_SSL(
+    "smtp.gmail.com",
+    465,
+    context=tls_context,
+    timeout=10,
+) as smtp:
                 smtp.login(account, os.environ["GMAIL_APP_PASSWORD"])
                 smtp.send_message(message)
             status = 200
